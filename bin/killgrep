@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# killgrep: kill processes by regex match on the process name (/proc/<pid>/comm)
+# Default matching is case-insensitive.
+
+set -o pipefail
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [-s SIGNAL] [-I] [-x] [-n] [-u USER] pattern
+  pattern       ERE applied to process name (comm), not full command line
+Options:
+  -s SIGNAL     Signal to send (default: TERM). Examples: HUP, INT, TERM, KILL, 9
+  -I            Case-sensitive match. By default matching is case-insensitive
+  -x            Exact match (treat pattern as a literal name)
+  -n            Dry run. Print matches without sending signals
+  -u USER       Only match processes owned by USER
+  -h            Show this help
+EOF
+}
+
+signal="TERM"
+insensitive=1   # default: case-insensitive
+exact=0
+dry_run=0
+user_filter=""
+
+while getopts "s:Ixnu:Ch" opt; do
+  case "$opt" in
+    s) signal="$OPTARG" ;;
+    I) insensitive=0 ;;     # force case-sensitive
+    x) exact=1 ;;
+    n) dry_run=1 ;;
+    u) user_filter="$OPTARG" ;;
+    C) insensitive=0 ;;     # alias for -I
+    h) usage; exit 0 ;;
+    *) usage; exit 1 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+if [ $# -lt 1 ]; then
+  usage
+  exit 1
+fi
+
+pattern="$1"
+
+if [ "$exact" -eq 1 ]; then
+  # Escape regex meta for literal exact match on name
+  pattern="$(printf '%s' "$pattern" | sed -E 's/[][(){}.^$|*+?\\]/\\&/g')"
+  pattern="^${pattern}$"
+fi
+
+self_pid=$$
+parent_pid=$PPID
+
+declare -a kill_pids
+declare -A name_by_pid
+
+for d in /proc/[0-9]*; do
+  pid="${d#/proc/}"
+
+  # skip pid 1, self, and parent shell
+  if [[ "$pid" -eq 1 || "$pid" -eq "$self_pid" || "$pid" -eq "$parent_pid" ]]; then
+    continue
+  fi
+
+  # read process name
+  if ! read -r comm < "$d/comm" 2>/dev/null; then
+    continue
+  fi
+
+  # skip kernel-style bracketed threads
+  [[ "$comm" == \[*\] ]] && continue
+
+  # user filter if requested
+  if [[ -n "$user_filter" ]]; then
+    proc_user="$(stat -c %U "$d" 2>/dev/null || echo "")"
+    [[ -z "$proc_user" || "$proc_user" != "$user_filter" ]] && continue
+  fi
+
+  # match against process name only
+  if [ "$insensitive" -eq 1 ]; then
+    if printf '%s\n' "$comm" | grep -Eqi -- "$pattern"; then
+      kill_pids+=("$pid")
+      name_by_pid["$pid"]="$comm"
+    fi
+  else
+    if printf '%s\n' "$comm" | grep -Eq -- "$pattern"; then
+      kill_pids+=("$pid")
+      name_by_pid["$pid"]="$comm"
+    fi
+  fi
+done
+
+if [ "${#kill_pids[@]}" -eq 0 ]; then
+  echo "killgrep: no processes matched pattern on process name: $pattern" >&2
+  exit 1
+fi
+
+if [ "$dry_run" -eq 1 ]; then
+  echo "Would send SIG${signal} to the following PIDs (name):"
+  for pid in "${kill_pids[@]}"; do
+    echo "  $pid (${name_by_pid[$pid]})"
+  done
+  exit 0
+fi
+
+send_batch() {
+  if [[ "$signal" =~ ^[0-9]+$ ]]; then
+    kill -"${signal}" -- "${kill_pids[@]}" 2>/dev/null
+  else
+    kill -s "$signal" -- "${kill_pids[@]}" 2>/dev/null
+  fi
+}
+
+if send_batch; then
+  for pid in "${kill_pids[@]}"; do
+    echo "Sent SIG${signal} to $pid (${name_by_pid[$pid]})"
+  done
+  exit 0
+fi
+
+rc=0
+for pid in "${kill_pids[@]}"; do
+  if [[ "$signal" =~ ^[0-9]+$ ]]; then
+    if kill -"${signal}" -- "$pid" 2>/dev/null; then
+      echo "Sent SIG${signal} to $pid (${name_by_pid[$pid]})"
+    else
+      echo "Failed to signal $pid (${name_by_pid[$pid]})" >&2
+      rc=1
+    fi
+  else
+    if kill -s "$signal" -- "$pid" 2>/dev/null; then
+      echo "Sent SIG${signal} to $pid (${name_by_pid[$pid]})"
+    else
+      echo "Failed to signal $pid (${name_by_pid[$pid]})" >&2
+      rc=1
+    fi
+  fi
+done
+exit $rc
