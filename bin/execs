@@ -10,11 +10,8 @@ IFS=':' read -ra PATHS <<< "$PATH"
 for DIR in "${PATHS[@]}"; do
   if [ -d "$DIR" ]; then
     # Find executable files in this directory (not subdirectories)
-    EXECS=$(ls -1 "$DIR" 2>/dev/null | while read -r file; do
-      if [ -x "$DIR/$file" ] && [ -f "$DIR/$file" ]; then
-        echo "$file"
-      fi
-    done)
+    # Using find for better handling of special characters
+    EXECS=$(find "$DIR" -maxdepth 1 -type f -executable -printf '%f\n' 2>/dev/null | sort)
     
     if [ -n "$EXECS" ]; then
       echo "# $DIR"

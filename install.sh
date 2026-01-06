@@ -38,7 +38,7 @@ echo "Installing commands to $INSTALL_DIR..."
 
 # Install each command from bin/
 for cmd in bin/*; do
-  if [ -f "$cmd" ] && [ -x "$cmd" ]; then
+  if [ -f "$cmd" ]; then
     CMD_NAME=$(basename "$cmd")
     echo "  Installing $CMD_NAME..."
     sudo cp "$cmd" "$INSTALL_DIR/$CMD_NAME"
