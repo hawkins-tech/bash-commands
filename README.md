@@ -23,24 +23,33 @@ sudo chmod +x /usr/local/bin/{killgrep,always,execs}
 
 ### killgrep
 
-Kill processes that fuzzy match a given name pattern.
+Kill processes by regex match on the process name (not full command line).
 
 **Usage:**
 ```bash
-killgrep <name>
+killgrep [-s SIGNAL] [-I] [-x] [-n] [-u USER] pattern
 ```
 
-**Example:**
+**Options:**
+- `-s SIGNAL` - Signal to send (default: TERM). Examples: HUP, INT, TERM, KILL, 9
+- `-I` - Case-sensitive match (default is case-insensitive)
+- `-x` - Exact match (treat pattern as a literal name)
+- `-n` - Dry run (print matches without sending signals)
+- `-u USER` - Only match processes owned by USER
+- `-h` - Show help
+
+**Examples:**
 ```bash
-killgrep node        # Find and kill processes matching "node"
-killgrep python      # Find and kill processes matching "python"
+killgrep node              # Kill all processes with "node" in the name
+killgrep -n python         # Dry run: show what would be killed
+killgrep -s KILL chrome    # Send SIGKILL to chrome processes
+killgrep -x bash           # Exact match: only kill processes named exactly "bash"
+killgrep -u www-data nginx # Kill nginx processes owned by www-data
 ```
-
-The command will show you matching processes and ask for confirmation before killing them.
 
 ### always
 
-Keep trying to run a command with a short sleep between attempts until it succeeds.
+Keep running a command repeatedly until interrupted.
 
 **Usage:**
 ```bash
@@ -53,11 +62,11 @@ always curl https://api.example.com/health     # Keep trying until the API is up
 always ping -c 1 192.168.1.1                   # Keep pinging until host responds
 ```
 
-Press `Ctrl+C` to stop the retry loop.
+Press `Ctrl+C` to stop the loop.
 
 ### execs
 
-List all executable files in your PATH, organized by directory.
+List all executable files in your PATH.
 
 **Usage:**
 ```bash
@@ -66,17 +75,16 @@ execs
 
 **Example output:**
 ```
-Executable files in PATH:
-
-# /usr/local/bin
-kubectl
-docker
-node
-
-# /usr/bin
+7z
 bash
-ls
+curl
+docker
+git
 grep
+ls
+node
+npm
+python3
 ...
 ```
 

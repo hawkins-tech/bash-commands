@@ -1,22 +1,4 @@
 #!/bin/bash
 # execs - List all executable files in PATH
 
-echo "Executable files in PATH:"
-echo ""
-
-# Split PATH by : and iterate through each directory
-IFS=':' read -ra PATHS <<< "$PATH"
-
-for DIR in "${PATHS[@]}"; do
-  if [ -d "$DIR" ]; then
-    # Find executable files in this directory (not subdirectories)
-    # Using find for better handling of special characters
-    EXECS=$(find "$DIR" -maxdepth 1 -type f -executable -printf '%f\n' 2>/dev/null | sort)
-    
-    if [ -n "$EXECS" ]; then
-      echo "# $DIR"
-      echo "$EXECS"
-      echo ""
-    fi
-  fi
-done
+ls -1 $(echo $PATH | tr ':' ' ') | sort -u

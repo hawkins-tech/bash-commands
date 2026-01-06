@@ -1,26 +1,6 @@
 #!/bin/bash
-# always - Keep trying to run a command with a short sleep between attempts
-
-if [ -z "$1" ]; then
-  echo "Usage: always <command> [args...]"
-  echo "Continuously runs a command until it succeeds or is interrupted"
-  exit 1
-fi
-
-SLEEP_TIME=2
-
-echo "Running command repeatedly (Ctrl+C to stop): $@"
-echo ""
-
-while true; do
-  echo "$(date '+%Y-%m-%d %H:%M:%S') - Running: $@"
-  
-  if "$@"; then
-    echo "Command succeeded!"
-    exit 0
-  else
-    EXIT_CODE=$?
-    echo "Command failed with exit code $EXIT_CODE. Retrying in ${SLEEP_TIME}s..."
-    sleep $SLEEP_TIME
-  fi
+while true
+do
+$@
+sleep 1
 done
