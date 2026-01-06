@@ -1,0 +1,25 @@
+#!/bin/bash
+# execs - List all executable files in PATH
+
+echo "Executable files in PATH:"
+echo ""
+
+# Split PATH by : and iterate through each directory
+IFS=':' read -ra PATHS <<< "$PATH"
+
+for DIR in "${PATHS[@]}"; do
+  if [ -d "$DIR" ]; then
+    # Find executable files in this directory (not subdirectories)
+    EXECS=$(ls -1 "$DIR" 2>/dev/null | while read -r file; do
+      if [ -x "$DIR/$file" ] && [ -f "$DIR/$file" ]; then
+        echo "$file"
+      fi
+    done)
+    
+    if [ -n "$EXECS" ]; then
+      echo "# $DIR"
+      echo "$EXECS"
+      echo ""
+    fi
+  fi
+done

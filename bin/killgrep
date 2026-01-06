@@ -1,0 +1,35 @@
+#!/bin/bash
+# killgrep - Kill processes that fuzzy match a given name
+
+if [ -z "$1" ]; then
+  echo "Usage: killgrep <name>"
+  echo "Kills processes that match the given name pattern"
+  exit 1
+fi
+
+PATTERN="$1"
+
+# Find matching processes (excluding grep and killgrep itself)
+PIDS=$(ps aux | grep -i "$PATTERN" | grep -v grep | grep -v killgrep | awk '{print $2}')
+
+if [ -z "$PIDS" ]; then
+  echo "No processes found matching: $PATTERN"
+  exit 0
+fi
+
+echo "Found processes matching '$PATTERN':"
+ps aux | grep -i "$PATTERN" | grep -v grep | grep -v killgrep
+
+echo ""
+read -p "Kill these processes? [y/N] " -n 1 -r
+echo ""
+
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  for PID in $PIDS; do
+    echo "Killing process $PID..."
+    kill "$PID" 2>/dev/null || echo "Failed to kill process $PID (may require sudo)"
+  done
+  echo "Done."
+else
+  echo "Aborted."
+fi
